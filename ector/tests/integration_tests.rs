@@ -7,13 +7,14 @@ mod tests {
     use core::future::Future;
     use ector::*;
     use embassy_executor::Spawner;
+    use embassy_sync::blocking_mutex::raw::{NoopRawMutex, CriticalSectionRawMutex};
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::{sync::mpsc, thread, time::Duration};
 
-    static INITIALIZED: AtomicU32 = AtomicU32::new(0);
-
     #[test]
     fn test_device_setup() {
+        static INITIALIZED: AtomicU32 = AtomicU32::new(0);
+
         pub struct MyActor {
             value: &'static AtomicU32,
         }
@@ -42,10 +43,67 @@ mod tests {
 
         #[embassy_executor::main]
         async fn main(spawner: Spawner) {
-            static ACTOR: ActorContext<MyActor> = ActorContext::new();
+            static ACTOR: ActorContext<MyActor, NoopRawMutex> = ActorContext::new();
 
             let a_addr = ACTOR.mount(
                 spawner,
+                MyActor {
+                    value: &INITIALIZED,
+                },
+            );
+
+            let _ = a_addr.try_notify(Add(10));
+        }
+
+        std::thread::spawn(move || {
+            main();
+        });
+
+        panic_after(Duration::from_secs(10), move || {
+            while INITIALIZED.load(Ordering::SeqCst) != 10 {
+                std::thread::sleep(Duration::from_secs(1))
+            }
+        })
+    }
+
+    #[test]
+    fn test_send_spawner() {
+        static INITIALIZED: AtomicU32 = AtomicU32::new(0);
+
+        pub struct MyActor {
+            value: &'static AtomicU32,
+        }
+
+        pub struct Add(u32);
+        impl Actor for MyActor {
+            type Message<'m> = Add;
+            type OnMountFuture<'m, M> = impl Future<Output = ()> + 'm where M: 'm + Inbox<Add>;
+
+            fn on_mount<'m, M>(
+                &'m mut self,
+                _: Address<Add>,
+                mut inbox: M,
+            ) -> Self::OnMountFuture<'m, M>
+            where
+                M: Inbox<Add> + 'm,
+            {
+                async move {
+                    loop {
+                        let message = inbox.next().await;
+                        self.value.fetch_add(message.0, Ordering::SeqCst);
+                    }
+                }
+            }
+        }
+
+        #[embassy_executor::main]
+        async fn main(spawner: Spawner) {
+            static ACTOR: ActorContext<MyActor, CriticalSectionRawMutex> = ActorContext::new();
+
+            let send_spawner = spawner.make_send();
+
+            let a_addr = ACTOR.mount(
+                send_spawner,
                 MyActor {
                     value: &INITIALIZED,
                 },

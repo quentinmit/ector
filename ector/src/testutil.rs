@@ -15,11 +15,11 @@ use std::vec::Vec;
 #[derive(Clone, Copy, Default)]
 pub struct TestSpawner;
 
-impl ActorSpawner for TestSpawner {
-    fn spawn<F: Future<Output = ()> + 'static>(
+impl <F: Future<Output = ()> + 'static> ActorSpawner<F> for TestSpawner {
+    fn spawn(
         &self,
-        _: &'static Task<F>,
-        _: F,
+        _task: &'static Task<F>,
+        _future: F,
     ) -> Result<(), SpawnError> {
         Ok(())
     }

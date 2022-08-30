@@ -3,6 +3,7 @@
 #![feature(type_alias_impl_trait)]
 
 use ector::*;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_time::{Duration, Ticker};
 use futures::{
     future::{select, Either},
@@ -12,8 +13,8 @@ use futures::{
 #[embassy_executor::main]
 async fn main(s: embassy_executor::Spawner) {
     // Example of circular references
-    static PINGER: ActorContext<Pinger> = ActorContext::new();
-    static PONGER: ActorContext<Ponger> = ActorContext::new();
+    static PINGER: ActorContext<Pinger, NoopRawMutex> = ActorContext::new();
+    static PONGER: ActorContext<Ponger, NoopRawMutex> = ActorContext::new();
 
     let pinger = PINGER.address();
     let ponger = PONGER.address();

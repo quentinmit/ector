@@ -3,12 +3,13 @@
 #![feature(type_alias_impl_trait)]
 
 use ector::*;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_time::{Duration, Timer};
 
 #[embassy_executor::main]
 async fn main(s: embassy_executor::Spawner) {
     // Example of request response
-    static SERVER: ActorContext<Server> = ActorContext::new();
+    static SERVER: ActorContext<Server, NoopRawMutex> = ActorContext::new();
 
     let server = SERVER.mount(s, Server);
 
@@ -23,8 +24,8 @@ pub struct Server;
 
 #[actor]
 impl Actor for Server {
-    type Message<'m> = Request<&'static str, &'static str>;
-    async fn on_mount<M>(&mut self, _: Address<Request<&'static str, &'static str>>, mut inbox: M)
+    type Message<'m> = Request<NoopRawMutex, &'static str, &'static str>;
+    async fn on_mount<M>(&mut self, _: Address<Request<NoopRawMutex, &'static str, &'static str>>, mut inbox: M)
     where
         M: Inbox<Self::Message<'m>> + 'm,
     {
