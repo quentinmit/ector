@@ -77,8 +77,12 @@ pub mod testutil;
 /// Spawn an actor given a spawner and the actors name, type and instance.
 #[macro_export]
 macro_rules! spawn_actor {
+    ($spawner:ident, $name:ident, $mutex:ty, $ty:ty, $instance:expr) => {{
+        static $name: ::ector::ActorContext<$ty, $mutex> = ::ector::ActorContext::new();
+        $name.mount($spawner, $instance)
+    }};
     ($spawner:ident, $name:ident, $ty:ty, $instance:expr) => {{
-        static $name: ::ector::ActorContext<$ty> = ::ector::ActorContext::new();
+        static $name: ::ector::ActorContext<$ty, ::embassy_sync::blocking_mutex::raw::NoopRawMutex> = ::ector::ActorContext::new();
         $name.mount($spawner, $instance)
     }};
 }
